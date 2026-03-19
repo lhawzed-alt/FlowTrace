@@ -76,6 +76,29 @@ def save_api_request():
     except Exception as e:
         return jsonify({"error": f"Server error: {str(e)}"}), 500
 
+@app.route('/api/requests', methods=['GET'])
+def get_api_requests():
+    try:
+        connection = get_db_connection()
+        with connection.cursor() as cursor:
+            sql = """
+            SELECT id, method, url, status_code, request_body, response_body, 
+                   DATE_FORMAT(created_at, '%Y-%m-%d %H:%i:%s') as created_at
+            FROM api_requests
+            ORDER BY created_at DESC
+            """
+            cursor.execute(sql)
+            results = cursor.fetchall()
+        
+        connection.close()
+        
+        return jsonify(results), 200
+        
+    except pymysql.Error as e:
+        return jsonify({"error": f"Database error: {str(e)}"}), 500
+    except Exception as e:
+        return jsonify({"error": f"Server error: {str(e)}"}), 500
+
 @app.route('/health', methods=['GET'])
 def health_check():
     return jsonify({"status": "healthy"}), 200

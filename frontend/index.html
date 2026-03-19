@@ -223,6 +223,87 @@
             background: #e3f2fd;
             border-color: #2196f3;
         }
+        
+        .replay-btn {
+            background-color: #2196f3;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        .replay-btn:hover:not(:disabled) {
+            background-color: #1976d2;
+        }
+        
+        .replay-btn:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+        
+        .replay-result {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 20px;
+        }
+        
+        .replay-result h3 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #dee2e6;
+        }
+        
+        .replay-loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+            font-style: italic;
+        }
+        
+        .replay-error {
+            background-color: #fee;
+            color: #c33;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            border-left: 4px solid #c33;
+        }
+        
+        .replay-content {
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+        }
+        
+        .replay-item {
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .replay-label {
+            font-weight: bold;
+            color: #555;
+            margin-bottom: 5px;
+            display: block;
+        }
+        
+        .replay-value {
+            background: white;
+            padding: 10px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+            white-space: pre-wrap;
+            word-break: break-all;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+        }
     </style>
 </head>
 <body>
@@ -260,6 +341,27 @@
                     </div>
                     <div id="detail-content" class="detail-content" style="display: none;">
                         <!-- 详情内容将在这里动态生成 -->
+                    </div>
+                    
+                    <!-- Replay 按钮区域 -->
+                    <div id="replay-section" style="display: none; margin-top: 20px;">
+                        <button id="replay-btn" class="replay-btn" disabled>
+                            Replay
+                        </button>
+                    </div>
+                    
+                    <!-- Replay 结果区域 -->
+                    <div id="replay-result" class="replay-result" style="display: none; margin-top: 20px;">
+                        <h3>Replay 结果</h3>
+                        <div id="replay-loading" class="replay-loading" style="display: none;">
+                            正在重放请求...
+                        </div>
+                        <div id="replay-error" class="replay-error" style="display: none;">
+                            <!-- 错误信息将在这里显示 -->
+                        </div>
+                        <div id="replay-content" class="replay-content" style="display: none;">
+                            <!-- Replay 结果将在这里显示 -->
+                        </div>
                     </div>
                 </div>
             </div>
@@ -395,6 +497,21 @@
                 
                 detailContentEl.innerHTML = detailHtml;
                 detailContentEl.style.display = 'block';
+                
+                // 显示Replay按钮区域
+                const replaySectionEl = document.getElementById('replay-section');
+                replaySectionEl.style.display = 'block';
+                
+                // 启用Replay按钮
+                const replayBtnEl = document.getElementById('replay-btn');
+                replayBtnEl.disabled = false;
+                
+                // 保存当前选中的请求ID
+                window.currentRequestId = request.id;
+                
+                // 隐藏之前的Replay结果
+                const replayResultEl = document.getElementById('replay-result');
+                replayResultEl.style.display = 'none';
             }
             
             // 使用 fetch API 获取数据
@@ -415,8 +532,73 @@
                 }
             }
             
+            // Replay 请求
+            async function replayRequest(requestId) {
+                const replayLoadingEl = document.getElementById('replay-loading');
+                const replayErrorEl = document.getElementById('replay-error');
+                const replayContentEl = document.getElementById('replay-content');
+                const replayResultEl = document.getElementById('replay-result');
+                
+                // 显示结果区域
+                replayResultEl.style.display = 'block';
+                
+                // 显示Loading，隐藏其他
+                replayLoadingEl.style.display = 'block';
+                replayErrorEl.style.display = 'none';
+                replayContentEl.style.display = 'none';
+                
+                try {
+                    const response = await fetch(`http://127.0.0.1:5000/api/replay/${requestId}`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                    
+                    // 隐藏Loading
+                    replayLoadingEl.style.display = 'none';
+                    
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.error || `HTTP 错误: ${response.status}`);
+                    }
+                    
+                    const result = await response.json();
+                    
+                    // 显示结果
+                    const resultHtml = `
+                        <div class="replay-item">
+                            <span class="replay-label">状态码</span>
+                            <div class="replay-value">${result.status_code}</div>
+                        </div>
+                        <div class="replay-item">
+                            <span class="replay-label">响应体</span>
+                            <div class="replay-value">${result.response_body || '(空)'}</div>
+                        </div>
+                    `;
+                    
+                    replayContentEl.innerHTML = resultHtml;
+                    replayContentEl.style.display = 'block';
+                    
+                } catch (error) {
+                    console.error('Replay 失败:', error);
+                    
+                    // 隐藏Loading，显示错误
+                    replayLoadingEl.style.display = 'none';
+                    replayErrorEl.textContent = `Replay 失败: ${error.message}`;
+                    replayErrorEl.style.display = 'block';
+                }
+            }
+            
             // 页面加载时立即获取数据
             fetchRequests();
+            
+            // 为Replay按钮添加点击事件
+            document.getElementById('replay-btn').addEventListener('click', function() {
+                if (window.currentRequestId && !this.disabled) {
+                    replayRequest(window.currentRequestId);
+                }
+            });
         });
     </script>
 </body>

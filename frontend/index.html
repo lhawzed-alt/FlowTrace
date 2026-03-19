@@ -70,21 +70,6 @@
             margin-top: 20px;
         }
         
-        .request-item {
-            background: #f9f9f9;
-            border: 1px solid #eee;
-            border-radius: 6px;
-            padding: 15px;
-            margin-bottom: 10px;
-            transition: all 0.2s;
-        }
-        
-        .request-item:hover {
-            background: #f0f0f0;
-            transform: translateY(-1px);
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-        }
-        
         .method {
             display: inline-block;
             padding: 4px 8px;
@@ -145,6 +130,107 @@
         }
         
         .status-5xx {
+            background-color: #ffebee;
+            color: #c62828;
+        }
+        
+        /* 时间线视图样式 */
+        .timeline-item {
+            display: flex;
+            align-items: center;
+            padding: 8px 12px;
+            border-bottom: 1px solid #eee;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+        
+        .timeline-item:hover {
+            background-color: #f5f5f5;
+            cursor: pointer;
+        }
+        
+        .timeline-item.selected {
+            background-color: #e3f2fd;
+            border-left: 3px solid #2196f3;
+        }
+        
+        .timeline-time {
+            color: #666;
+            font-size: 12px;
+            min-width: 70px;
+            margin-right: 10px;
+        }
+        
+        .timeline-method {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: bold;
+            min-width: 50px;
+            text-align: center;
+            margin-right: 10px;
+            text-transform: uppercase;
+        }
+        
+        /* 确保时间线视图的method颜色与原有样式一致 */
+        .timeline-method.method-get {
+            background-color: #61affe;
+            color: white;
+        }
+        
+        .timeline-method.method-post {
+            background-color: #49cc90;
+            color: white;
+        }
+        
+        .timeline-method.method-put {
+            background-color: #fca130;
+            color: white;
+        }
+        
+        .timeline-method.method-delete {
+            background-color: #f93e3e;
+            color: white;
+        }
+        
+        .timeline-method.method-patch {
+            background-color: #50e3c2;
+            color: white;
+        }
+        
+        .timeline-url {
+            flex: 1;
+            color: #2c3e50;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            margin-right: 10px;
+        }
+        
+        .timeline-status {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: bold;
+            min-width: 40px;
+            text-align: center;
+        }
+        
+        /* 确保时间线视图的status颜色与原有样式一致 */
+        .timeline-status.status-2xx {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+        }
+        
+        .timeline-status.status-4xx {
+            background-color: #fff3e0;
+            color: #ef6c00;
+        }
+        
+        .timeline-status.status-5xx {
             background-color: #ffebee;
             color: #c62828;
         }
@@ -401,16 +487,29 @@
                 return '';
             }
             
-            // 创建请求项 HTML
+            // 创建请求项 HTML（时间线视图）
             function createRequestItem(request, index) {
                 const methodClass = getMethodClass(request.method);
                 const statusClass = getStatusCodeClass(request.status_code);
                 
+                // 提取时间部分（如 "12:00:01"）
+                let timeStr = '';
+                if (request.created_at) {
+                    // 从 "2026-03-19 18:51:07" 中提取时间部分
+                    const parts = request.created_at.split(' ');
+                    if (parts.length > 1) {
+                        timeStr = parts[1]; // 获取时间部分
+                    } else {
+                        timeStr = request.created_at;
+                    }
+                }
+                
                 return `
-                    <div class="request-item" data-id="${request.id}" data-index="${index}">
-                        <span class="method ${methodClass}">${request.method}</span>
-                        <span class="url">${request.url}</span>
-                        <span class="status-code ${statusClass}">${request.status_code}</span>
+                    <div class="request-item timeline-item" data-id="${request.id}" data-index="${index}">
+                        <span class="timeline-time">${timeStr}</span>
+                        <span class="timeline-method ${methodClass}">${request.method}</span>
+                        <span class="timeline-url">${request.url}</span>
+                        <span class="timeline-status ${statusClass}">${request.status_code}</span>
                     </div>
                 `;
             }

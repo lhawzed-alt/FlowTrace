@@ -226,8 +226,8 @@
         }
         
         .timeline-status.status-4xx {
-            background-color: #fff3e0;
-            color: #ef6c00;
+            background-color: #ffebee;
+            color: #c62828;
         }
         
         .timeline-status.status-5xx {
@@ -308,6 +308,73 @@
         .request-item.selected {
             background: #e3f2fd;
             border-color: #2196f3;
+        }
+        
+        /* 筛选输入框样式 */
+        .filter-container {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .filter-row {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 10px;
+        }
+        
+        .filter-row:last-child {
+            margin-bottom: 0;
+        }
+        
+        .filter-group {
+            flex: 1;
+        }
+        
+        .filter-group.full-width {
+            flex: 1;
+        }
+        
+        .filter-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 13px;
+            font-weight: 500;
+            color: #495057;
+        }
+        
+        .filter-select {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 13px;
+            background-color: white;
+            color: #495057;
+        }
+        
+        .filter-select:focus {
+            outline: none;
+            border-color: #2196f3;
+            box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.2);
+        }
+        
+        .filter-input {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 13px;
+            background-color: white;
+            color: #495057;
+        }
+        
+        .filter-input:focus {
+            outline: none;
+            border-color: #2196f3;
+            box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.2);
         }
         
         .replay-btn {
@@ -408,6 +475,41 @@
             <!-- 左侧：请求列表 -->
             <div class="left-panel">
                 <h2>请求列表</h2>
+                
+                <!-- 筛选输入框 -->
+                <div class="filter-container">
+                    <div class="filter-row">
+                        <div class="filter-group">
+                            <label for="method-filter">Method:</label>
+                            <select id="method-filter" class="filter-select">
+                                <option value="all">All</option>
+                                <option value="GET">GET</option>
+                                <option value="POST">POST</option>
+                                <option value="PUT">PUT</option>
+                                <option value="DELETE">DELETE</option>
+                            </select>
+                        </div>
+                        
+                        <div class="filter-group">
+                            <label for="status-filter">Status:</label>
+                            <select id="status-filter" class="filter-select">
+                                <option value="all">All</option>
+                                <option value="200">200</option>
+                                <option value="201">201</option>
+                                <option value="400">400</option>
+                                <option value="500">500</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="filter-row">
+                        <div class="filter-group full-width">
+                            <label for="url-filter">URL 搜索:</label>
+                            <input type="text" id="url-filter" class="filter-input" placeholder="输入 URL 关键词...">
+                        </div>
+                    </div>
+                </div>
+                
                 <div id="request-list" class="request-list" style="display: none;">
                     <!-- 请求列表将在这里动态生成 -->
                 </div>
@@ -527,22 +629,70 @@
                 emptyStateEl.style.display = 'block';
             }
             
-            // 显示请求列表
-            function showRequestList(requests) {
-                loadingEl.style.display = 'none';
-                
+            // 筛选请求数据
+            function filterRequests(requests) {
                 if (!requests || requests.length === 0) {
-                    showEmptyState();
+                    return [];
+                }
+                
+                // 获取筛选条件
+                const methodFilter = document.getElementById('method-filter').value;
+                const statusFilter = document.getElementById('status-filter').value;
+                const urlFilter = document.getElementById('url-filter').value.toLowerCase().trim();
+                
+                // 筛选请求
+                return requests.filter(request => {
+                    // Method筛选
+                    if (methodFilter !== 'all' && request.method !== methodFilter) {
+                        return false;
+                    }
+                    
+                    // Status筛选
+                    if (statusFilter !== 'all' && String(request.status_code) !== statusFilter) {
+                        return false;
+                    }
+                    
+                    // URL筛选
+                    if (urlFilter && !request.url.toLowerCase().includes(urlFilter)) {
+                        return false;
+                    }
+                    
+                    return true;
+                });
+            }
+            
+            // 应用筛选并刷新显示
+            function applyFilter() {
+                if (!allRequests || allRequests.length === 0) {
                     return;
                 }
                 
-                // 保存到全局变量
-                allRequests = requests;
+                const filteredRequests = filterRequests(allRequests);
                 
-                // 生成所有请求项的 HTML
-                const itemsHtml = requests.map((request, index) => createRequestItem(request, index)).join('');
+                if (filteredRequests.length === 0) {
+                    // 显示空状态
+                    requestListEl.style.display = 'none';
+                    emptyStateEl.style.display = 'block';
+                    
+                    // 重置选中状态
+                    window.currentRequestId = null;
+                    document.getElementById('replay-btn').disabled = true;
+                    defaultStateEl.style.display = 'block';
+                    detailContentEl.style.display = 'none';
+                    return;
+                }
+                
+                // 生成筛选后的请求项 HTML
+                const itemsHtml = filteredRequests.map((request, index) => createRequestItem(request, index)).join('');
                 requestListEl.innerHTML = itemsHtml;
                 requestListEl.style.display = 'block';
+                emptyStateEl.style.display = 'none';
+                
+                // 检查当前选中的请求是否在筛选结果中
+                let selectedRequestInFilter = null;
+                if (window.currentRequestId) {
+                    selectedRequestInFilter = filteredRequests.find(request => request.id === window.currentRequestId);
+                }
                 
                 // 为每个请求项添加点击事件
                 const requestItems = requestListEl.querySelectorAll('.request-item');
@@ -555,10 +705,42 @@
                         
                         // 获取请求索引
                         const index = parseInt(this.getAttribute('data-index'));
-                        // 显示详情
-                        showRequestDetail(allRequests[index]);
+                        const request = filteredRequests[index];
+                        
+                        // 显示请求详情
+                        showRequestDetail(request);
                     });
+                    
+                    // 如果当前选中的请求在筛选结果中，标记为选中
+                    const itemId = parseInt(item.getAttribute('data-id'));
+                    if (selectedRequestInFilter && itemId === selectedRequestInFilter.id) {
+                        item.classList.add('selected');
+                    }
                 });
+                
+                // 如果当前选中的请求不在筛选结果中，重置选中状态
+                if (!selectedRequestInFilter) {
+                    window.currentRequestId = null;
+                    document.getElementById('replay-btn').disabled = true;
+                    defaultStateEl.style.display = 'block';
+                    detailContentEl.style.display = 'none';
+                }
+            }
+            
+            // 显示请求列表
+            function showRequestList(requests) {
+                loadingEl.style.display = 'none';
+                
+                if (!requests || requests.length === 0) {
+                    showEmptyState();
+                    return;
+                }
+                
+                // 保存到全局变量
+                allRequests = requests;
+                
+                // 应用筛选显示
+                applyFilter();
             }
             
             // 显示请求详情
@@ -691,6 +873,11 @@
             
             // 页面加载时立即获取数据
             fetchRequests();
+            
+            // 为筛选输入框添加事件监听
+            document.getElementById('method-filter').addEventListener('change', applyFilter);
+            document.getElementById('status-filter').addEventListener('change', applyFilter);
+            document.getElementById('url-filter').addEventListener('input', applyFilter);
             
             // 为Replay按钮添加点击事件
             document.getElementById('replay-btn').addEventListener('click', function() {

@@ -1,5 +1,5 @@
-from flowtrace import create_app
-from flowtrace.config import FLOWTRACE_DEBUG, PORT, logger
+from src.flowtrace import create_app
+from src.flowtrace.config import FLOWTRACE_DEBUG, PORT, logger
 
 app = create_app()
 

@@ -9,9 +9,9 @@ from .validation import validate_api_payload
 
 
 def register_routes(app):
-    api = Blueprint("api", __name__)
+    api = Blueprint("api", __name__, url_prefix="/api")
 
-    @api.route("/api/request", methods=["POST"])
+    @api.route("/request", methods=["POST"])
     def save_api_request():
         payload = request.get_json()
 
@@ -37,7 +37,7 @@ def register_routes(app):
             logger.exception("Database error while saving request")
             return jsonify({"error": "Database error"}), 500
 
-    @api.route("/api/requests", methods=["GET"])
+    @api.route("/requests", methods=["GET"])
     def get_api_requests():
         try:
             with closing(get_db_connection()) as connection:
@@ -56,7 +56,7 @@ def register_routes(app):
             logger.exception("Database error while querying requests")
             return jsonify({"error": "Database error"}), 500
 
-    @api.route("/api/replay/<int:request_id>", methods=["POST"])
+    @api.route("/replay/<int:request_id>", methods=["POST"])
     def replay_api_request(request_id):
         try:
             with closing(get_db_connection()) as connection:
@@ -93,11 +93,11 @@ def register_routes(app):
             logger.exception("Replay request failed for %s %s", method, url)
             return jsonify({"error": f"Request failed: {exc}"}), 502
 
-    @api.route("/api/test", methods=["GET"])
+    @api.route("/test", methods=["GET"])
     def test_get_endpoint():
         return jsonify({"message": "GET request successful"}), 200
 
-    @api.route("/api/test", methods=["POST"])
+    @api.route("/test", methods=["POST"])
     def test_post_endpoint():
         payload = request.get_json(force=False, silent=True)
         return jsonify(
@@ -107,7 +107,7 @@ def register_routes(app):
             }
         ), 201
 
-    @api.route("/api/users", methods=["GET"])
+    @api.route("/users", methods=["GET"])
     def get_users():
         return jsonify(
             {
@@ -120,7 +120,7 @@ def register_routes(app):
             }
         ), 200
 
-    @api.route("/api/users", methods=["POST"])
+    @api.route("/users", methods=["POST"])
     def create_user():
         payload = request.get_json(force=False, silent=True) or {}
         name = payload.get("name")

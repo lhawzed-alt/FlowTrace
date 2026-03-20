@@ -25,6 +25,8 @@ REPLAY_TIMEOUT = float(os.getenv("FLOWTRACE_REPLAY_TIMEOUT", "10"))
 FLOWTRACE_DEBUG = os.getenv("FLOWTRACE_DEBUG", "0").lower() in {"1", "true", "yes", "on"}
 LOG_LEVEL = os.getenv("FLOWTRACE_LOG_LEVEL", "INFO").upper()
 PORT = int(os.getenv("FLOWTRACE_PORT", "5000"))
+PROJECT_NAME = "FlowTrace"
+PROJECT_VERSION = os.getenv("FLOWTRACE_VERSION", "1.0.0")
 
 logging.basicConfig(
     level=LOG_LEVEL,

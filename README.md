@@ -4,7 +4,7 @@ FlowTrace is a lightweight API request tracer + replay assistant. It records HTT
 
 ## Backend (Flask)
 
-FlowTrace backend is packaged under `backend/src/flowtrace`, which exposes an application factory (`create_app`) plus helper modules for config, validation, replay orchestration, and database access. `backend/app.py` builds the Flask app and `backend/__main__.py` re-exports the same entrypoint so you can run the server with `python -m backend`.
+FlowTrace backend is packaged under `backend/src/flowtrace`, which exposes an application factory (`create_app`) plus helper modules for config, validation, replay orchestration, and database access. `backend/app.py` builds the Flask app, the package exposes a `/` meta route, and `backend/__main__.py` re-exports the same entrypoint so you can run the server with `python -m backend`.
 
 ### Requirements
 1. Python 3.12+ (the project declares `requires-python = ">=3.12"`).

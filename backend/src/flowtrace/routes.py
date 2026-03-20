@@ -7,6 +7,7 @@ from .db import (
     insert_api_request,
 )
 from .replay import dispatch_replay
+from .websocket import broadcast_trace
 from .validation import validate_api_payload
 
 
@@ -24,7 +25,10 @@ def register_routes(app):
             return jsonify({"error": str(exc)}), 400
 
         try:
-            insert_api_request(method, url, status_code, request_body, response_body, tags)
+            trace_id = insert_api_request(method, url, status_code, request_body, response_body, tags)
+            trace = fetch_api_request_by_id(trace_id)
+            if trace:
+                broadcast_trace(trace)
             return jsonify({"message": "saved"}), 201
         except Exception:
             logger.exception("Database error while saving request")

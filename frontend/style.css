@@ -290,10 +290,23 @@
             font-size: 16px;
         }
         
-        .detail-content {
-            font-family: 'Courier New', monospace;
-            font-size: 14px;
-        }
+.detail-content {
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+}
+
+.detail-code {
+    background: #0f0f13;
+    color: #f8f8f2;
+    padding: 1rem;
+    border-radius: 0.5rem;
+    max-height: 240px;
+    overflow: auto;
+    font-size: 0.9rem;
+    line-height: 1.4;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    margin-top: 0.5rem;
+}
         
         .detail-item {
             margin-bottom: 15px;

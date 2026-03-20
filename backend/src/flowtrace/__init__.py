@@ -1,4 +1,5 @@
 from .config import PROJECT_NAME, PROJECT_VERSION, logger
+from .websocket import sock
 
 
 def create_app():
@@ -10,6 +11,7 @@ def create_app():
 
     app = Flask(__name__)
     CORS(app)
+    sock.init_app(app)
     register_routes(app)
     ensure_db_schema()
 

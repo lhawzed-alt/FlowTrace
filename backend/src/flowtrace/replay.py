@@ -1,3 +1,4 @@
+import asyncio
 import json
 from urllib.parse import urljoin, urlparse
 
@@ -86,3 +87,18 @@ def dispatch_replay(method: str, url: str, request_body: str) -> requests.Respon
     if not response.ok:
         logger.warning("Replay request returned %s for %s %s", response.status_code, method, full_url)
     return response
+
+
+async def dispatch_replay_async(method: str, url: str, request_body: str) -> requests.Response:
+    """
+    Async helper that runs dispatch_replay in a thread executor so Flask's worker thread is not blocked.
+    For longer-running replays or distributed execution, offload the same logic to a Celery task:
+
+        @celery.task
+        def replay_task(method, url, body):
+            return dispatch_replay(method, url, body)
+
+    Then `replay_task.delay(...)` can be triggered by the route while the HTTP response is returned immediately.
+    """
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(None, dispatch_replay, method, url, request_body)

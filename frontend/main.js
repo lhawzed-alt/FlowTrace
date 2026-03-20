@@ -1,5 +1,7 @@
 // 全局变量保存请求数据
         let allRequests = [];
+        let traceSocket = null;
+        let traceReconnectTimer = null;
         
         document.addEventListener('DOMContentLoaded', function() {
             const loadingEl = document.getElementById('loading');
@@ -8,10 +10,33 @@
             const emptyStateEl = document.getElementById('empty-state');
             const defaultStateEl = document.getElementById('default-state');
             const detailContentEl = document.getElementById('detail-content');
+            const searchInputEl = document.getElementById('search-input');
             
             // 全局变量
             window.currentRequestId = null;
             window.currentTagFilter = null; // 当前选中的tag筛选
+            
+            const escapeHtml = (value) => {
+                if (value === null || value === undefined) return '';
+                return String(value)
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#39;');
+            };
+            
+            const prettyJson = (value) => {
+                if (!value) {
+                    return '';
+                }
+                try {
+                    const parsed = JSON.parse(value);
+                    return JSON.stringify(parsed, null, 2);
+                } catch {
+                    return value;
+                }
+            };
             
             // 获取方法对应的 CSS 类名
             function getMethodClass(method) {
@@ -98,6 +123,7 @@
                 const methodFilter = document.getElementById('method-filter').value;
                 const statusFilter = document.getElementById('status-filter').value;
                 const urlFilter = document.getElementById('url-filter').value.toLowerCase().trim();
+                const searchTerm = (searchInputEl && searchInputEl.value || '').toLowerCase().trim();
                 
                 // 筛选请求
                 return requests.filter(request => {
@@ -114,6 +140,15 @@
                     // URL筛选
                     if (urlFilter && !request.url.toLowerCase().includes(urlFilter)) {
                         return false;
+                    }
+
+                    // Search 快速匹配 URL 或状态码
+                    if (searchTerm) {
+                        const matchesUrl = request.url && request.url.toLowerCase().includes(searchTerm);
+                        const matchesStatus = String(request.status_code).includes(searchTerm);
+                        if (!matchesUrl && !matchesStatus) {
+                            return false;
+                        }
                     }
                     
                     // Tag筛选
@@ -256,38 +291,51 @@
             function showRequestDetail(request) {
                 // 隐藏默认状态
                 defaultStateEl.style.display = 'none';
-                
-                // 创建详情内容
+
+                const requestBodyRaw = request.request_body || '';
+                const responseBodyRaw = request.response_body || '';
+                const requestBodySection = requestBodyRaw
+                    ? `<pre class="detail-code"><code class="language-json">${escapeHtml(prettyJson(requestBodyRaw))}</code></pre>`
+                    : '<div class="detail-value">(空)</div>';
+                const responseBodySection = responseBodyRaw
+                    ? `<pre class="detail-code"><code class="language-json">${escapeHtml(prettyJson(responseBodyRaw))}</code></pre>`
+                    : '<div class="detail-value">(空)</div>';
+
                 const detailHtml = `
                     <div class="detail-item">
                         <span class="detail-label">请求方法</span>
-                        <div class="detail-value">${request.method}</div>
+                        <div class="detail-value">${escapeHtml(request.method)}</div>
                     </div>
                     <div class="detail-item">
                         <span class="detail-label">请求URL</span>
-                        <div class="detail-value">${request.url}</div>
+                        <div class="detail-value">${escapeHtml(request.url)}</div>
                     </div>
                     <div class="detail-item">
                         <span class="detail-label">状态码</span>
-                        <div class="detail-value">${request.status_code}</div>
+                        <div class="detail-value">${escapeHtml(request.status_code)}</div>
                     </div>
                     <div class="detail-item">
                         <span class="detail-label">请求体</span>
-                        <div class="detail-value">${request.request_body || '(空)'}</div>
+                        ${requestBodySection}
                     </div>
                     <div class="detail-item">
                         <span class="detail-label">响应体</span>
-                        <div class="detail-value">${request.response_body || '(空)'}</div>
+                        ${responseBodySection}
                     </div>
                     <div class="detail-item">
                         <span class="detail-label">创建时间</span>
-                        <div class="detail-value">${request.created_at}</div>
+                        <div class="detail-value">${escapeHtml(request.created_at)}</div>
                     </div>
                 `;
-                
+
                 detailContentEl.innerHTML = detailHtml;
                 detailContentEl.style.display = 'block';
-                
+
+                const codeBlocks = detailContentEl.querySelectorAll('code.language-json');
+                if (window.Prism && Prism.highlightElement) {
+                    codeBlocks.forEach(block => Prism.highlightElement(block));
+                }
+
                 // 显示Replay按钮区域
                 const replaySectionEl = document.getElementById('replay-section');
                 replaySectionEl.style.display = 'block';
@@ -321,6 +369,52 @@
                     showError(`获取数据失败: ${error.message}`);
                 }
             }
+
+            const buildTraceSocketUrl = () => {
+                const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+                return `${protocol}://${window.location.host}/ws/traces`;
+            };
+
+            const handleTraceMessage = (rawData) => {
+                try {
+                    const trace = JSON.parse(rawData);
+                    allRequests = [trace, ...allRequests.filter(r => r.id !== trace.id)];
+                    applyFilter();
+                } catch (error) {
+                    console.warn('无法解析实时 trace:', error);
+                }
+            };
+
+            const connectTraceSocket = () => {
+                if (!window.WebSocket) {
+                    console.warn('WebSocket 未被支持，实时更新将不可用');
+                    return;
+                }
+
+                if (traceSocket && traceSocket.readyState === WebSocket.OPEN) {
+                    return;
+                }
+
+                traceSocket = new WebSocket(buildTraceSocketUrl());
+                traceSocket.addEventListener('open', () => {
+                    if (traceReconnectTimer) {
+                        clearTimeout(traceReconnectTimer);
+                        traceReconnectTimer = null;
+                    }
+                });
+
+                traceSocket.addEventListener('message', (event) => {
+                    handleTraceMessage(event.data);
+                });
+
+                traceSocket.addEventListener('close', () => {
+                    traceReconnectTimer = setTimeout(connectTraceSocket, 2000);
+                });
+
+                traceSocket.addEventListener('error', () => {
+                    traceSocket.close();
+                });
+            };
             
             // Replay 请求
             async function replayRequest(requestId) {
@@ -394,6 +488,7 @@
             
             // 页面加载时立即获取数据
             fetchRequests();
+            connectTraceSocket();
             
             // 处理筛选输入变化
             function handleFilterChange() {
@@ -412,6 +507,9 @@
             document.getElementById('method-filter').addEventListener('change', handleFilterChange);
             document.getElementById('status-filter').addEventListener('change', handleFilterChange);
             document.getElementById('url-filter').addEventListener('input', handleFilterChange);
+            if (searchInputEl) {
+                searchInputEl.addEventListener('input', handleFilterChange);
+            }
             
             // 为Replay按钮添加点击事件
             document.getElementById('replay-btn').addEventListener('click', function() {

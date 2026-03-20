@@ -24,6 +24,8 @@ DB_CONFIG = {
 TARGET_BASE_URL = os.getenv("FLOWTRACE_TARGET_BASE_URL", "http://localhost:5000")
 REPLAY_TIMEOUT = float(os.getenv("FLOWTRACE_REPLAY_TIMEOUT", "10"))
 ALLOWED_REPLAY_HOSTS = set()
+DB_POOL_MIN_CACHED = int(os.getenv("FLOWTRACE_DB_POOL_MIN_CACHED", "1"))
+DB_POOL_MAX_CACHED = int(os.getenv("FLOWTRACE_DB_POOL_MAX_CACHED", "10"))
 
 
 def _hosts_from_env(value: str | None) -> set[str]:

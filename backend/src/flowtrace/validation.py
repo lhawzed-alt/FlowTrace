@@ -1,4 +1,41 @@
+import re
+
 from .config import ALLOWED_METHODS
+
+HEADER_NAME_RE = re.compile(r"^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$")
+
+
+def validate_http_headers(headers):
+    if headers is None:
+        return {}
+    if not isinstance(headers, dict):
+        raise ValueError("Headers must be a dictionary of name/value pairs")
+
+    sanitized = {}
+    for raw_name, raw_value in headers.items():
+        if not isinstance(raw_name, str):
+            raise ValueError("HTTP header names must be strings")
+        name = raw_name.strip()
+        if not name or HEADER_NAME_RE.fullmatch(name) is None:
+            raise ValueError(f"Invalid HTTP header name '{raw_name}'")
+
+        if isinstance(raw_value, bytes):
+            value = raw_value.decode("utf-8")
+        else:
+            value = raw_value
+
+        if isinstance(value, (int, float)):
+            value = str(value)
+
+        if not isinstance(value, str):
+            raise ValueError(f"HTTP header '{name}' value must be a string")
+
+        if "\r" in value or "\n" in value:
+            raise ValueError(f"HTTP header '{name}' contains disallowed control characters")
+
+        sanitized[name] = value
+
+    return sanitized
 
 
 def validate_api_payload(payload):

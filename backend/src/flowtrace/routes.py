@@ -1,9 +1,11 @@
-from contextlib import closing
-
 from flask import Blueprint, jsonify, request
 
 from .config import logger
-from .db import get_db_connection
+from .db import (
+    fetch_api_request_by_id,
+    fetch_api_requests,
+    insert_api_request,
+)
 from .replay import dispatch_replay
 from .validation import validate_api_payload
 
@@ -22,16 +24,7 @@ def register_routes(app):
             return jsonify({"error": str(exc)}), 400
 
         try:
-            with closing(get_db_connection()) as connection:
-                with connection.cursor() as cursor:
-                    cursor.execute(
-                        """
-                        INSERT INTO api_requests (method, url, status_code, request_body, response_body, tags)
-                        VALUES (%s, %s, %s, %s, %s, %s)
-                        """,
-                        (method, url, status_code, request_body, response_body, tags),
-                    )
-                connection.commit()
+            insert_api_request(method, url, status_code, request_body, response_body, tags)
             return jsonify({"message": "saved"}), 201
         except Exception:
             logger.exception("Database error while saving request")
@@ -40,17 +33,7 @@ def register_routes(app):
     @api.route("/requests", methods=["GET"])
     def get_api_requests():
         try:
-            with closing(get_db_connection()) as connection:
-                with connection.cursor() as cursor:
-                    cursor.execute(
-                        """
-                        SELECT id, method, url, status_code, request_body, response_body, tags,
-                               DATE_FORMAT(created_at, "%Y-%m-%d %H:%i:%s") as created_at
-                        FROM api_requests
-                        ORDER BY created_at DESC
-                        """
-                    )
-                    results = cursor.fetchall()
+            results = fetch_api_requests()
             return jsonify(results), 200
         except Exception:
             logger.exception("Database error while querying requests")
@@ -59,17 +42,7 @@ def register_routes(app):
     @api.route("/replay/<int:request_id>", methods=["POST"])
     def replay_api_request(request_id):
         try:
-            with closing(get_db_connection()) as connection:
-                with connection.cursor() as cursor:
-                    cursor.execute(
-                        """
-                        SELECT method, url, request_body
-                        FROM api_requests
-                        WHERE id = %s
-                        """,
-                        (request_id,),
-                    )
-                    record = cursor.fetchone()
+            record = fetch_api_request_by_id(request_id)
         except Exception:
             logger.exception("Database error while fetching request %s", request_id)
             return jsonify({"error": "Database error"}), 500
@@ -83,12 +56,18 @@ def register_routes(app):
 
         try:
             response = dispatch_replay(method, url, request_body)
-            return jsonify(
-                {
-                    "status_code": response.status_code,
-                    "response_body": response.text,
-                }
-            ), 200
+            return (
+                jsonify(
+                    {
+                        "status_code": response.status_code,
+                        "response_body": response.text,
+                    }
+                ),
+                200,
+            )
+        except ValueError as exc:
+            logger.warning("Replay blocked for %s %s: %s", method, url, exc)
+            return jsonify({"error": str(exc)}), 400
         except Exception as exc:
             logger.exception("Replay request failed for %s %s", method, url)
             return jsonify({"error": f"Request failed: {exc}"}), 502

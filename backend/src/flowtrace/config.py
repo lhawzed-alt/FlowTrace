@@ -1,5 +1,6 @@
 import logging
 import os
+from urllib.parse import urlparse
 
 try:
     from dotenv import load_dotenv
@@ -22,6 +23,40 @@ DB_CONFIG = {
 }
 TARGET_BASE_URL = os.getenv("FLOWTRACE_TARGET_BASE_URL", "http://localhost:5000")
 REPLAY_TIMEOUT = float(os.getenv("FLOWTRACE_REPLAY_TIMEOUT", "10"))
+ALLOWED_REPLAY_HOSTS = set()
+
+
+def _hosts_from_env(value: str | None) -> set[str]:
+    if not value:
+        return set()
+    result = set()
+    for chunk in value.split(","):
+        chunk = chunk.strip()
+        if chunk:
+            result.add(chunk.lower())
+    return result
+
+
+def _hosts_from_url(url: str | None) -> set[str]:
+    if not url:
+        return set()
+    parsed = urlparse(url)
+    result = set()
+    if parsed.hostname:
+        hostname = parsed.hostname.lower()
+        result.add(hostname)
+        if parsed.port:
+            result.add(f"{hostname}:{parsed.port}")
+    if parsed.netloc:
+        result.add(parsed.netloc.lower())
+    return result
+
+
+ALLOWED_REPLAY_HOSTS.update(_hosts_from_env(os.getenv("FLOWTRACE_REPLAY_ALLOWED_HOSTS")))
+ALLOWED_REPLAY_HOSTS.update(_hosts_from_url(TARGET_BASE_URL))
+if not ALLOWED_REPLAY_HOSTS:
+    raise ValueError("Unable to build replay allow list because no hosts are configured")
+
 FLOWTRACE_DEBUG = os.getenv("FLOWTRACE_DEBUG", "0").lower() in {"1", "true", "yes", "on"}
 LOG_LEVEL = os.getenv("FLOWTRACE_LOG_LEVEL", "INFO").upper()
 PORT = int(os.getenv("FLOWTRACE_PORT", "5000"))

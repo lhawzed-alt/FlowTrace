@@ -1,3 +1,5 @@
+import pymysql
+
 from flask import Blueprint, jsonify, request
 
 from .config import logger
@@ -30,26 +32,35 @@ def register_routes(app):
             if trace:
                 broadcast_trace(trace)
             return jsonify({"message": "saved"}), 201
-        except Exception:
+        except pymysql.MySQLError:
             logger.exception("Database error while saving request")
             return jsonify({"error": "Database error"}), 500
+        except Exception:
+            logger.exception("Unexpected error while saving request")
+            return jsonify({"error": "Internal server error"}), 500
 
     @api.route("/requests", methods=["GET"])
     def get_api_requests():
         try:
             results = fetch_api_requests()
             return jsonify(results), 200
-        except Exception:
+        except pymysql.MySQLError:
             logger.exception("Database error while querying requests")
             return jsonify({"error": "Database error"}), 500
+        except Exception:
+            logger.exception("Unexpected error while querying requests")
+            return jsonify({"error": "Internal server error"}), 500
 
     @api.route("/replay/<int:request_id>", methods=["POST"])
     def replay_api_request(request_id):
         try:
             record = fetch_api_request_by_id(request_id)
-        except Exception:
+        except pymysql.MySQLError:
             logger.exception("Database error while fetching request %s", request_id)
             return jsonify({"error": "Database error"}), 500
+        except Exception:
+            logger.exception("Unexpected error while fetching request %s", request_id)
+            return jsonify({"error": "Internal server error"}), 500
 
         if not record:
             return jsonify({"error": "Record not found"}), 404

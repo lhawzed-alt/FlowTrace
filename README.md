@@ -1,54 +1,90 @@
-# FlowTrace
+# FlowTrace 🚀
 
-FlowTrace is a lightweight API request tracer + replay assistant. It records HTTP calls, exposes the latest history, and lets you reissue a saved request for testing/debugging purposes.
+**FlowTrace** 是一个轻量级、实时、可私有化部署的 API 请求追踪与回放工具。它旨在帮助开发者在复杂的分布式系统或微服务开发中，轻松捕获、观察并重放 HTTP 请求，彻底告别盲目调试。
 
-## Backend (Flask)
+![License](https://img.shields.io/badge/license-MIT-blue.svg)
+![Python](https://img.shields.io/badge/python-3.12%2B-green.svg)
 
-FlowTrace backend is packaged under `backend/src/flowtrace`, which exposes an application factory (`create_app`) plus helper modules for config, validation, replay orchestration, and database access. `backend/app.py` builds the Flask app, the package exposes a `/` meta route, and `backend/__main__.py` re-exports the same entrypoint so you can run the server with `python -m backend`.
+---
 
-### Requirements
-1. Python 3.12+ (the project declares `requires-python = ">=3.12"`).
-2. A MySQL-compatible database named `flowtrace` (credentials are configurable via `backend/.env.example` or your shell).
-3. The dependencies defined in `backend/pyproject.toml` (install via `python -m pip install -e backend` to get an editable install plus CLI helpers).
+## ✨ 核心特性
 
-### Env configuration
-Create a `.env` file at the repository root (or set the vars in your shell) that mirrors `backend/.env.example`. Important variables:
+- **无侵入追踪**：通过轻量级中间件或 API 节点捕获完整的 HTTP 流。
+- **实时控制台**：基于 WebSocket 的前端界面，无需刷新即可实时看到请求流入。
+- **请求回放 (Replay)**：支持一键重放历史请求，快速复现 Bug。
+- **安全合规**：所有数据存储在您的本地数据库中，确保数据隐私。
+- **轻量易用**：基于 Flask 与 Vanilla JS 构建，部署极简。
 
-- `FLOWTRACE_DB_HOST`, `FLOWTRACE_DB_PORT`, `FLOWTRACE_DB_USER`, `FLOWTRACE_DB_PASSWORD`, `FLOWTRACE_DB_NAME`: connection info for your database.
-- `FLOWTRACE_PORT`: port the Flask app listens on (default `5000`).
-- `FLOWTRACE_TARGET_BASE_URL`: base URL used for replaying relative request targets (defaults to `http://localhost:5000`).
-- `FLOWTRACE_REPLAY_TIMEOUT`, `FLOWTRACE_DEBUG`, `FLOWTRACE_LOG_LEVEL`: control the downstream request timeout, debug mode, and log verbosity.
+## 🛠️ 技术栈
 
-`.env` is already ignored by Git to keep secrets private.
+- **后端**: Python 3.12+, Flask, PyMySQL
+- **前端**: 原生 JavaScript (ES6+), CSS3, HTML5
+- **数据库**: MySQL / MariaDB
+- **包管理**: [uv](https://github.com/astral-sh/uv) (推荐) 或 pip
 
-### Running
+## 🚀 快速开始
+
+### 1. 克隆项目
 ```bash
-python -m pip install -e backend
-python -m backend
+git clone [https://github.com/your-username/FlowTrace.git](https://github.com/your-username/FlowTrace.git)
+cd FlowTrace
 ```
 
-`FlowTrace` auto-creates the `api_requests` table (via `ensure_db_schema`) on startup, so you only need to ensure the database exists and credentials are valid.
-
-### Testing
+### 2. 环境配置
+复制环境变量模板并根据实际情况修改数据库连接信息：
 ```bash
-python -m unittest backend.tests.test_validation
+cp backend/.env.example backend/.env
+```
+编辑 `backend/.env`，填写您的 MySQL 配置。
+
+### 3. 安装依赖
+推荐使用 uv 进行快速安装：
+
+```bash
+cd backend
+uv sync
 ```
 
-### Key endpoints
-- `POST /api/request`: persist a new request (validates `method`, `url`, and `status_code`).
-- `GET /api/requests`: stream stored requests (latest first).
-- `POST /api/replay/<id>`: replay a saved request while parsing JSON payloads.
-- `GET /health`: a lightweight health check used by monitoring.
+### 4. 运行应用
+```bash
+# 启动后端服务
+python app.py
+```
 
-Helpful test routes remain available under `/api/test` and `/api/users` for frontend verification.
+默认情况下，后端运行在 `http://127.0.0.1:5000`。
+您可以直接打开 `frontend/index.html` 访问管理控制台。
 
-## Frontend
+### 📂 项目结构
+```plaintext
+FlowTrace/
+├── backend/
+│   ├── src/flowtrace/      # 核心逻辑 (路由、重放、数据库)
+│   ├── app.py              # 程序入口
+│   └── pyproject.toml      # 依赖管理
+├── frontend/
+│   ├── index.html          # 主界面
+│   ├── main.js             # WebSocket 与交互逻辑
+│   └── style.css           # 样式
+└── README.md
+```
 
-The UI is still a single static `frontend/index.html` file. Serve it via `python -m http.server 8000` from the `frontend/` directory or open it directly in the browser; it uses unpkg's `fetch` to talk to `http://127.0.0.1:5000` by default—adjust those URLs when pointing to another backend host/port.
+### 🔒 安全性说明
+**数据隐私**：`FlowTrace` 默认不上传任何数据到外部服务器。
 
-## Work Done
+**敏感信息屏蔽**：建议在 `validation.py` 中配置敏感 Header（如 Authorization）的过滤规则。
 
-1. Reorganized the backend into a package with dedicated modules (`config`, `db`, `validation`, `replay`, and `routes`) so future features can be plugged in cleanly.
-2. Added an editable install entrypoint (`backend/app.py` + `backend/__main__.py`) plus structured logging/config via `python-dotenv`.
-3. Introduced a small unit test covering validation logic and documented how to run it.
-4. Expanded the README + `.env.example` documentation so new contributors understand the engineering workflow for both backend and frontend.
+### 🗺️ 路线图 (Roadmap)
+- [ ] 支持请求参数的“编辑后重放”
+
+- [ ] 导出请求为 cURL 命令或 Postman Collection
+
+- [ ] 多用户协作与团队工作区 (Team Workspace)
+
+- [ ] 智能请求异常分析 (AI Insights)
+
+### 📄 许可证
+本项目采用 `MIT License` 开源。
+
+### 🤝 贡献与反馈
+如果您有任何问题或建议，欢迎提交 `Issue` 或 `Pull Request`。
+提示：如果您在企业环境中使用并需要高级支持（如私有化集群部署、自动化测试集成），请通过邮件联系：`lhawzed@gmail.com`

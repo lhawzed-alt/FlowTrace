@@ -11,6 +11,9 @@
             const defaultStateEl = document.getElementById('default-state');
             const detailContentEl = document.getElementById('detail-content');
             const searchInputEl = document.getElementById('search-input');
+            const methodFilterEl = document.getElementById('method-filter');
+            const statusFilterEl = document.getElementById('status-filter');
+            const urlFilterEl = document.getElementById('url-filter');
             
             // 全局变量
             window.currentRequestId = null;
@@ -45,6 +48,7 @@
             };
 
             function generateCurlCommand(traceData) {
+                // Build a shell-friendly cURL command from whatever metadata we store
                 const method = (traceData.method || 'GET').toUpperCase();
                 const parts = ['curl'];
 
@@ -108,6 +112,7 @@
                     return;
                 }
 
+                // Copy cURL string with both headers and body injected
                 const curlCommand = generateCurlCommand(trace);
                 const originalText = button.textContent;
                 try {
@@ -124,6 +129,7 @@
             };
 
             const attachCurlButtons = () => {
+                // Ensure every new list item wires up the copy action without duplicates
                 const curlButtons = requestListEl.querySelectorAll('.copy-curl-btn');
                 curlButtons.forEach(button => {
                     button.removeEventListener('click', handleCopyButtonClick);
@@ -218,9 +224,9 @@
                 }
                 
                 // 获取筛选条件
-                const methodFilter = document.getElementById('method-filter').value;
-                const statusFilter = document.getElementById('status-filter').value;
-                const urlFilter = document.getElementById('url-filter').value.toLowerCase().trim();
+                const methodFilter = methodFilterEl.value;
+                const statusFilter = statusFilterEl.value;
+                const urlFilter = urlFilterEl.value.toLowerCase().trim();
                 const searchTerm = (searchInputEl && searchInputEl.value || '').toLowerCase().trim();
                 
                 // 筛选请求
@@ -485,6 +491,7 @@
             };
 
             const connectTraceSocket = () => {
+                // Keep the trace list fresh via a lightweight WebSocket stream
                 if (!window.WebSocket) {
                     console.warn('WebSocket 未被支持，实时更新将不可用');
                     return;
@@ -603,9 +610,9 @@
             }
             
             // 为筛选输入框添加事件监听
-            document.getElementById('method-filter').addEventListener('change', handleFilterChange);
-            document.getElementById('status-filter').addEventListener('change', handleFilterChange);
-            document.getElementById('url-filter').addEventListener('input', handleFilterChange);
+            methodFilterEl.addEventListener('change', handleFilterChange);
+            statusFilterEl.addEventListener('change', handleFilterChange);
+            urlFilterEl.addEventListener('input', handleFilterChange);
             if (searchInputEl) {
                 searchInputEl.addEventListener('input', handleFilterChange);
             }

@@ -12,16 +12,34 @@ load_dotenv()
 
 ALLOWED_METHODS = {"GET", "POST", "PUT", "DELETE", "PATCH"}
 
+
+def _require_env(name: str) -> str:
+    value = os.getenv(name)
+    if not value:
+        raise RuntimeError(f"Environment variable {name} is required but not set")
+    return value
+
+
+def _int_env(name: str, default: int) -> int:
+    raw = os.getenv(name)
+    if raw:
+        try:
+            return int(raw)
+        except ValueError as exc:
+            raise RuntimeError(f"Environment variable {name} must be an integer: {exc}") from exc
+    return default
+
+
 DB_CONFIG = {
-    "host": os.getenv("FLOWTRACE_DB_HOST", "localhost"),
-    "user": os.getenv("FLOWTRACE_DB_USER", "root"),
-    "password": os.getenv("FLOWTRACE_DB_PASSWORD", "0000"),
-    "database": os.getenv("FLOWTRACE_DB_NAME", "flowtrace"),
-    "port": int(os.getenv("FLOWTRACE_DB_PORT", "3306")),
+    "host": _require_env("FLOWTRACE_DB_HOST"),
+    "user": _require_env("FLOWTRACE_DB_USER"),
+    "password": _require_env("FLOWTRACE_DB_PASSWORD"),
+    "database": _require_env("FLOWTRACE_DB_NAME"),
+    "port": _int_env("FLOWTRACE_DB_PORT", 3306),
     "charset": "utf8mb4",
-    "connect_timeout": int(os.getenv("FLOWTRACE_DB_CONNECT_TIMEOUT", "5")),
+    "connect_timeout": _int_env("FLOWTRACE_DB_CONNECT_TIMEOUT", 5),
 }
-TARGET_BASE_URL = os.getenv("FLOWTRACE_TARGET_BASE_URL", "http://localhost:5000")
+TARGET_BASE_URL = _require_env("FLOWTRACE_TARGET_BASE_URL")
 REPLAY_TIMEOUT = float(os.getenv("FLOWTRACE_REPLAY_TIMEOUT", "10"))
 ALLOWED_REPLAY_HOSTS = set()
 DB_POOL_MIN_CACHED = int(os.getenv("FLOWTRACE_DB_POOL_MIN_CACHED", "1"))

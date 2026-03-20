@@ -2,6 +2,7 @@ from contextlib import closing
 
 import pymysql
 import pymysql.cursors
+from pymysql.err import MySQLError
 from dbutils.pooled_db import PooledDB
 
 from .config import (
@@ -75,6 +76,14 @@ CREATE_TRACE_INDEX_SQL = f"""
 CREATE INDEX {TRACE_INDEX_NAME}
 ON api_requests (created_at)
 """
+INDEX_EXISTS_SQL = """
+SELECT 1
+FROM information_schema.statistics
+WHERE table_schema = %s
+  AND table_name = 'api_requests'
+  AND index_name = %s
+LIMIT 1
+"""
 
 INDEX_EXISTS_SQL = """
 SELECT 1
@@ -94,26 +103,38 @@ def _ensure_trace_index(cursor):
 
 
 def insert_api_request(method, url, status_code, request_body, response_body, tags):
-    with closing(get_db_connection()) as connection:
-        with connection.cursor() as cursor:
-            cursor.execute(
-                INSERT_API_REQUEST_SQL,
-                (method, url, status_code, request_body, response_body, tags),
-            )
-            trace_id = cursor.lastrowid
-        connection.commit()
-    return trace_id
+    try:
+        with closing(get_db_connection()) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    INSERT_API_REQUEST_SQL,
+                    (method, url, status_code, request_body, response_body, tags),
+                )
+                trace_id = cursor.lastrowid
+            connection.commit()
+        return trace_id
+    except MySQLError:
+        logger.exception("Failed to insert API request into the database")
+        raise
 
 
 def fetch_api_requests():
-    with closing(get_db_connection()) as connection:
-        with connection.cursor() as cursor:
-            cursor.execute(SELECT_ALL_REQUESTS_SQL)
-            return cursor.fetchall()
+    try:
+        with closing(get_db_connection()) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(SELECT_ALL_REQUESTS_SQL)
+                return cursor.fetchall()
+    except MySQLError:
+        logger.exception("Failed to fetch API requests from the database")
+        raise
 
 
 def fetch_api_request_by_id(request_id):
-    with closing(get_db_connection()) as connection:
-        with connection.cursor() as cursor:
-            cursor.execute(SELECT_REQUEST_BY_ID_SQL, (request_id,))
-            return cursor.fetchone()
+    try:
+        with closing(get_db_connection()) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(SELECT_REQUEST_BY_ID_SQL, (request_id,))
+                return cursor.fetchone()
+    except MySQLError:
+        logger.exception("Failed to fetch API request %s", request_id)
+        raise

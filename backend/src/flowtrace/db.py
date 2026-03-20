@@ -76,13 +76,21 @@ CREATE INDEX {TRACE_INDEX_NAME}
 ON api_requests (created_at)
 """
 
+INDEX_EXISTS_SQL = """
+SELECT 1
+FROM information_schema.statistics
+WHERE table_schema = %s
+  AND table_name = 'api_requests'
+  AND index_name = %s
+LIMIT 1
+"""
+
 
 def _ensure_trace_index(cursor):
-    try:
-        cursor.execute(CREATE_TRACE_INDEX_SQL)
-    except pymysql.err.InternalError as exc:
-        if not exc.args or exc.args[0] != 1061:
-            raise
+    cursor.execute(INDEX_EXISTS_SQL, (DB_CONFIG["database"], TRACE_INDEX_NAME))
+    if cursor.fetchone():
+        return
+    cursor.execute(CREATE_TRACE_INDEX_SQL)
 
 
 def insert_api_request(method, url, status_code, request_body, response_body, tags):

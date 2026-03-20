@@ -37,6 +37,99 @@
                     return value;
                 }
             };
+
+            const escapeForShell = (value) => {
+                return String(value || '')
+                    .replace(/\\/g, '\\\\')
+                    .replace(/"/g, '\\"');
+            };
+
+            function generateCurlCommand(traceData) {
+                const method = (traceData.method || 'GET').toUpperCase();
+                const parts = ['curl'];
+
+                if (method !== 'GET') {
+                    parts.push(`-X ${method}`);
+                }
+
+                const headers = traceData.headers || {};
+                Object.entries(headers).forEach(([name, value]) => {
+                    const headerValue = value ?? '';
+                    parts.push(`-H "${escapeForShell(name)}: ${escapeForShell(headerValue)}"`);
+                });
+
+                const body =
+                    traceData.body ??
+                    traceData.request_body ??
+                    traceData.data ??
+                    '';
+
+                if (body) {
+                    parts.push(`-d "${escapeForShell(body)}"`);
+                }
+
+                const url = traceData.url || traceData.request_url || '';
+                parts.push(`"${url}"`);
+
+                return parts.join(' ');
+            }
+
+            const copyTextToClipboard = (text) => {
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    return navigator.clipboard.writeText(text);
+                }
+
+                return new Promise((resolve, reject) => {
+                    const textarea = document.createElement('textarea');
+                    textarea.value = text;
+                    textarea.style.position = 'fixed';
+                    textarea.style.top = '-9999px';
+                    document.body.appendChild(textarea);
+                    textarea.focus();
+                    textarea.select();
+
+                    try {
+                        document.execCommand('copy');
+                        resolve();
+                    } catch (err) {
+                        reject(err);
+                    } finally {
+                        document.body.removeChild(textarea);
+                    }
+                });
+            };
+
+            const handleCopyButtonClick = async (event) => {
+                event.stopPropagation();
+                const button = event.currentTarget;
+                const traceId = Number(button.dataset.id);
+                const trace = allRequests.find(item => item.id === traceId);
+                if (!trace) {
+                    return;
+                }
+
+                const curlCommand = generateCurlCommand(trace);
+                const originalText = button.textContent;
+                try {
+                    await copyTextToClipboard(curlCommand);
+                    button.textContent = 'Copied!';
+                } catch (err) {
+                    console.error('Copy cURL failed', err);
+                    button.textContent = 'Copy failed';
+                } finally {
+                    setTimeout(() => {
+                        button.textContent = originalText;
+                    }, 1500);
+                }
+            };
+
+            const attachCurlButtons = () => {
+                const curlButtons = requestListEl.querySelectorAll('.copy-curl-btn');
+                curlButtons.forEach(button => {
+                    button.removeEventListener('click', handleCopyButtonClick);
+                    button.addEventListener('click', handleCopyButtonClick);
+                });
+            };
             
             // 获取方法对应的 CSS 类名
             function getMethodClass(method) {
@@ -96,6 +189,11 @@
                         <span class="timeline-url">${request.url}</span>
                         <span class="timeline-status ${statusClass}">${request.status_code}</span>
                         ${tagsHtml}
+                        <div class="request-actions">
+                            <button type="button" class="copy-curl-btn" data-id="${request.id}">
+                                Copy as cURL
+                            </button>
+                        </div>
                     </div>
                 `;
             }
@@ -224,6 +322,7 @@
                         item.classList.add('selected');
                     }
                 });
+                attachCurlButtons();
                 
                 // 如果当前选中的请求不在筛选结果中，重置选中状态
                 if (!selectedRequestInFilter) {
